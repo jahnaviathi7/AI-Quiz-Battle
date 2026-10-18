@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import "./style.css";
 
-const API = "http://127.0.0.1:8000";
+const API = "https://ai-quiz-battle-backend.onrender.com";
 
 const CATEGORIES = [
   "Python",
@@ -76,7 +76,10 @@ function App() {
 
   const progress = useMemo(() => {
     if (!questions.length) return 0;
-    return Math.round(((currentQuestion + 1) / questions.length) * 100);
+
+    return Math.round(
+      ((currentQuestion + 1) / questions.length) * 100
+    );
   }, [currentQuestion, questions.length]);
 
   useEffect(() => {
@@ -87,7 +90,13 @@ function App() {
   }, [student]);
 
   useEffect(() => {
-    if (page !== "quiz" || answered || !questions.length) return;
+    if (
+      page !== "quiz" ||
+      answered ||
+      !questions.length
+    ) {
+      return;
+    }
 
     if (timeLeft <= 0) {
       handleAnswer(null);
@@ -99,14 +108,21 @@ function App() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [page, answered, timeLeft, questions.length]);
+  }, [
+    page,
+    answered,
+    timeLeft,
+    questions.length,
+  ]);
 
   const fetchStudentStats = async () => {
     if (!student?.name) return;
 
     try {
       const response = await fetch(
-        `${API}/api/student-stats/${encodeURIComponent(student.name)}`
+        `${API}/api/student-stats/${encodeURIComponent(
+          student.name
+        )}`
       );
 
       if (!response.ok) return;
@@ -115,29 +131,46 @@ function App() {
 
       setStudentStats({
         username: data.username || student.name,
-        quizzes_completed: Number(data.quizzes_completed || 0),
+        quizzes_completed: Number(
+          data.quizzes_completed || 0
+        ),
         best_score: Number(data.best_score || 0),
         total_xp: Number(data.total_xp || 0),
         best_streak: Number(data.best_streak || 0),
-        average_score: Number(data.average_score || 0),
-        recent_results: data.recent_results || [],
+        average_score: Number(
+          data.average_score || 0
+        ),
+        recent_results:
+          data.recent_results || [],
       });
     } catch (error) {
-      console.error("Failed to fetch student stats:", error);
+      console.error(
+        "Failed to fetch student stats:",
+        error
+      );
     }
   };
 
   const fetchLeaderboard = async () => {
     try {
-      const response = await fetch(`${API}/api/leaderboard`);
+      const response = await fetch(
+        `${API}/api/leaderboard`
+      );
 
       if (!response.ok) return;
 
       const data = await response.json();
 
-      setLeaderboard(Array.isArray(data) ? data : data.results || []);
+      setLeaderboard(
+        Array.isArray(data)
+          ? data
+          : data.results || []
+      );
     } catch (error) {
-      console.error("Failed to fetch leaderboard:", error);
+      console.error(
+        "Failed to fetch leaderboard:",
+        error
+      );
     }
   };
 
@@ -146,18 +179,31 @@ function App() {
 
     setAuthError("");
 
-    if (!authEmail.trim() || !authPassword.trim()) {
-      setAuthError("Please enter your email and password.");
+    if (
+      !authEmail.trim() ||
+      !authPassword.trim()
+    ) {
+      setAuthError(
+        "Please enter your email and password."
+      );
       return;
     }
 
-    if (authMode === "register" && !authName.trim()) {
+    if (
+      authMode === "register" &&
+      !authName.trim()
+    ) {
       setAuthError("Please enter your name.");
       return;
     }
 
-    if (authMode === "register" && authPassword.length < 6) {
-      setAuthError("Password must contain at least 6 characters.");
+    if (
+      authMode === "register" &&
+      authPassword.length < 6
+    ) {
+      setAuthError(
+        "Password must contain at least 6 characters."
+      );
       return;
     }
 
@@ -173,11 +219,15 @@ function App() {
         authMode === "register"
           ? {
               name: authName.trim(),
-              email: authEmail.trim().toLowerCase(),
+              email: authEmail
+                .trim()
+                .toLowerCase(),
               password: authPassword,
             }
           : {
-              email: authEmail.trim().toLowerCase(),
+              email: authEmail
+                .trim()
+                .toLowerCase(),
               password: authPassword,
             };
 
@@ -192,7 +242,10 @@ function App() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.detail || "Authentication failed.");
+        throw new Error(
+          data.detail ||
+            "Authentication failed."
+        );
       }
 
       const loggedStudent = data.student
@@ -207,7 +260,11 @@ function App() {
             email: data.email,
           };
 
-      localStorage.setItem("quiz_student", JSON.stringify(loggedStudent));
+      localStorage.setItem(
+        "quiz_student",
+        JSON.stringify(loggedStudent)
+      );
+
       setStudent(loggedStudent);
 
       setAuthName("");
@@ -216,7 +273,10 @@ function App() {
       setAuthError("");
       setPage("home");
     } catch (error) {
-      setAuthError(error.message || "Something went wrong.");
+      setAuthError(
+        error.message ||
+          "Something went wrong."
+      );
     } finally {
       setAuthLoading(false);
     }
@@ -250,29 +310,45 @@ function App() {
     setMessage("");
 
     try {
-      const response = await fetch(`${API}/api/generate-quiz`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          category,
-          difficulty,
-          count: questionCount,
-        }),
-      });
+      const response = await fetch(
+        `${API}/api/generate-quiz`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            category,
+            difficulty,
+            count: questionCount,
+          }),
+        }
+      );
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.detail || "Unable to generate quiz.");
+        throw new Error(
+          data.detail ||
+            "Unable to generate quiz."
+        );
       }
 
       const generatedQuestions =
-        data.questions || data.quiz || data || [];
+        data.questions ||
+        data.quiz ||
+        data ||
+        [];
 
-      if (!Array.isArray(generatedQuestions) || generatedQuestions.length === 0) {
-        throw new Error("No questions were generated.");
+      if (
+        !Array.isArray(
+          generatedQuestions
+        ) ||
+        generatedQuestions.length === 0
+      ) {
+        throw new Error(
+          "No questions were generated."
+        );
       }
 
       setQuestions(generatedQuestions);
@@ -287,7 +363,11 @@ function App() {
       setPage("quiz");
     } catch (error) {
       console.error(error);
-      setMessage(error.message || "Unable to start quiz.");
+
+      setMessage(
+        error.message ||
+          "Unable to start quiz."
+      );
     } finally {
       setLoading(false);
     }
@@ -330,36 +410,66 @@ function App() {
     return [];
   };
 
-  const isCorrectAnswer = (selected, correct) => {
-    if (selected === null || selected === undefined) return false;
+  const isCorrectAnswer = (
+    selected,
+    correct
+  ) => {
+    if (
+      selected === null ||
+      selected === undefined
+    ) {
+      return false;
+    }
 
     const normalize = (value) =>
       String(value ?? "")
         .trim()
         .toLowerCase();
 
-    return normalize(selected) === normalize(correct);
+    return (
+      normalize(selected) ===
+      normalize(correct)
+    );
   };
 
   const handleAnswer = (answer) => {
     if (answered || !question) return;
 
-    const correctAnswer = getCorrectAnswer(question);
-    const correct = isCorrectAnswer(answer, correctAnswer);
+    const correctAnswer =
+      getCorrectAnswer(question);
+
+    const correct = isCorrectAnswer(
+      answer,
+      correctAnswer
+    );
 
     setSelectedAnswer(answer);
     setAnswered(true);
 
     if (correct) {
       const newStreak = streak + 1;
-      const points = 10 + Math.min(timeLeft, 30);
+      const points =
+        10 + Math.min(timeLeft, 30);
 
-      setScore((previous) => previous + points);
-      setXp((previous) => previous + 20 + newStreak * 5);
+      setScore(
+        (previous) => previous + points
+      );
+
+      setXp(
+        (previous) =>
+          previous +
+          20 +
+          newStreak * 5
+      );
+
       setStreak(newStreak);
 
-      setBestStreak((previous) =>
-        Math.max(previous, newStreak)
+      setBestStreak(
+        (previous) =>
+          Math.max(
+            previous,
+            newStreak
+          )
       );
     } else {
       setStreak(0);
@@ -369,26 +479,38 @@ function App() {
   const finishQuiz = async () => {
     const finalScore = score;
     const finalXp = xp;
-    const finalStreak = Math.max(bestStreak, streak);
+    const finalStreak = Math.max(
+      bestStreak,
+      streak
+    );
 
     try {
-      const response = await fetch(`${API}/api/results`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          username: student.name,
-          score: finalScore,
-          xp: finalXp,
-          streak: finalStreak,
-        }),
-      });
+      const response = await fetch(
+        `${API}/api/results`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            username: student.name,
+            score: finalScore,
+            xp: finalXp,
+            streak: finalStreak,
+          }),
+        }
+      );
 
       if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
+        const data =
+          await response
+            .json()
+            .catch(() => ({}));
+
         throw new Error(
-          data.detail || "Failed to save quiz result."
+          data.detail ||
+            "Failed to save quiz result."
         );
       }
 
@@ -397,17 +519,32 @@ function App() {
 
       setPage("result");
     } catch (error) {
-      console.error("Failed to save quiz result:", error);
-      setMessage(error.message || "Failed to save quiz result.");
+      console.error(
+        "Failed to save quiz result:",
+        error
+      );
+
+      setMessage(
+        error.message ||
+          "Failed to save quiz result."
+      );
     }
   };
 
   const nextQuestion = async () => {
-    if (currentQuestion < questions.length - 1) {
-      setCurrentQuestion((previous) => previous + 1);
+    if (
+      currentQuestion <
+      questions.length - 1
+    ) {
+      setCurrentQuestion(
+        (previous) =>
+          previous + 1
+      );
+
       setSelectedAnswer(null);
       setAnswered(false);
       setTimeLeft(30);
+
       return;
     }
 
@@ -417,6 +554,7 @@ function App() {
   const goHome = async () => {
     await fetchStudentStats();
     await fetchLeaderboard();
+
     setPage("home");
   };
 
@@ -442,19 +580,26 @@ function App() {
 
         <div className="auth-card">
           <div className="auth-logo">
-            <span className="brand-icon">⚡</span>
+            <span className="brand-icon">
+              ⚡
+            </span>
           </div>
 
-          <h1 className="auth-heading">AI Quiz Battle</h1>
+          <h1 className="auth-heading">
+            AI Quiz Battle
+          </h1>
 
           <p className="auth-subtitle">
-            Test your CSE knowledge. Compete. Improve.
+            Test your CSE knowledge.
+            Compete. Improve.
           </p>
 
           <div className="auth-tabs">
             <button
               className={`auth-tab ${
-                authMode === "login" ? "active" : ""
+                authMode === "login"
+                  ? "active"
+                  : ""
               }`}
               onClick={() => {
                 setAuthMode("login");
@@ -466,7 +611,9 @@ function App() {
 
             <button
               className={`auth-tab ${
-                authMode === "register" ? "active" : ""
+                authMode === "register"
+                  ? "active"
+                  : ""
               }`}
               onClick={() => {
                 setAuthMode("register");
@@ -478,34 +625,52 @@ function App() {
           </div>
 
           <form onSubmit={handleAuth}>
-            {authMode === "register" && (
+            {authMode ===
+              "register" && (
               <div className="input-group">
                 <label>Full Name</label>
+
                 <input
                   type="text"
                   value={authName}
-                  onChange={(event) => setAuthName(event.target.value)}
+                  onChange={(event) =>
+                    setAuthName(
+                      event.target.value
+                    )
+                  }
                   placeholder="Enter your name"
                 />
               </div>
             )}
 
             <div className="input-group">
-              <label>Email Address</label>
+              <label>
+                Email Address
+              </label>
+
               <input
                 type="email"
                 value={authEmail}
-                onChange={(event) => setAuthEmail(event.target.value)}
+                onChange={(event) =>
+                  setAuthEmail(
+                    event.target.value
+                  )
+                }
                 placeholder="Enter your email"
               />
             </div>
 
             <div className="input-group">
               <label>Password</label>
+
               <input
                 type="password"
                 value={authPassword}
-                onChange={(event) => setAuthPassword(event.target.value)}
+                onChange={(event) =>
+                  setAuthPassword(
+                    event.target.value
+                  )
+                }
                 placeholder="Enter your password"
               />
             </div>
@@ -530,7 +695,8 @@ function App() {
           </form>
 
           <div className="auth-footer">
-            AI-Powered Interactive Quiz Platform
+            AI-Powered Interactive Quiz
+            Platform
           </div>
         </div>
       </div>
@@ -538,8 +704,11 @@ function App() {
   }
 
   if (page === "quiz") {
-    const options = getOptions(question);
-    const correctAnswer = getCorrectAnswer(question);
+    const options =
+      getOptions(question);
+
+    const correctAnswer =
+      getCorrectAnswer(question);
 
     return (
       <div className="app">
@@ -547,27 +716,46 @@ function App() {
           <div
             className="brand"
             onClick={goHome}
-            style={{ cursor: "pointer" }}
+            style={{
+              cursor: "pointer",
+            }}
           >
-            <span className="brand-icon">⚡</span>
+            <span className="brand-icon">
+              ⚡
+            </span>
 
             <div>
-              <div className="brand-title">AI Quiz Battle</div>
-              <div className="brand-subtitle">CSE Challenge</div>
+              <div className="brand-title">
+                AI Quiz Battle
+              </div>
+
+              <div className="brand-subtitle">
+                CSE Challenge
+              </div>
             </div>
           </div>
 
           <div className="student-menu">
             <div className="student-avatar">
-              {getInitials(student.name)}
+              {getInitials(
+                student.name
+              )}
             </div>
 
             <div className="student-info">
-              <strong>{student.name}</strong>
-              <span>{student.email}</span>
+              <strong>
+                {student.name}
+              </strong>
+
+              <span>
+                {student.email}
+              </span>
             </div>
 
-            <button className="logout-button" onClick={logout}>
+            <button
+              className="logout-button"
+              onClick={logout}
+            >
               Logout
             </button>
           </div>
@@ -578,17 +766,23 @@ function App() {
             <div className="quiz-stats">
               <div className="quiz-stat">
                 <span>Score</span>
-                <strong>{score}</strong>
+                <strong>
+                  {score}
+                </strong>
               </div>
 
               <div className="quiz-stat">
                 <span>XP</span>
-                <strong>{xp}</strong>
+                <strong>
+                  {xp}
+                </strong>
               </div>
 
               <div className="quiz-stat">
                 <span>Streak</span>
-                <strong>🔥 {streak}</strong>
+                <strong>
+                  🔥 {streak}
+                </strong>
               </div>
 
               <div className="timer">
@@ -600,71 +794,116 @@ function App() {
           <div className="progress-container">
             <div className="progress-info">
               <span>
-                Question {currentQuestion + 1} of {questions.length}
+                Question{" "}
+                {currentQuestion + 1}{" "}
+                of {questions.length}
               </span>
-              <span>{progress}%</span>
+
+              <span>
+                {progress}%
+              </span>
             </div>
 
             <div className="progress-bar">
               <div
                 className="progress-fill"
-                style={{ width: `${progress}%` }}
+                style={{
+                  width: `${progress}%`,
+                }}
               ></div>
             </div>
           </div>
 
           <div className="question-card">
             <div className="question-number">
-              {category} • {difficulty}
+              {category} •{" "}
+              {difficulty}
             </div>
 
-            <h2>{getQuestionText(question)}</h2>
+            <h2>
+              {getQuestionText(
+                question
+              )}
+            </h2>
 
             <div className="answers-grid">
-              {options.map((option, index) => {
-                const optionLetter = String.fromCharCode(65 + index);
+              {options.map(
+                (option, index) => {
+                  const optionLetter =
+                    String.fromCharCode(
+                      65 + index
+                    );
 
-                let answerClass = "answer-option";
+                  let answerClass =
+                    "answer-option";
 
-                if (answered) {
-                  if (isCorrectAnswer(option, correctAnswer)) {
-                    answerClass += " correct";
-                  } else if (
-                    selectedAnswer !== null &&
-                    isCorrectAnswer(option, selectedAnswer)
-                  ) {
-                    answerClass += " wrong";
+                  if (answered) {
+                    if (
+                      isCorrectAnswer(
+                        option,
+                        correctAnswer
+                      )
+                    ) {
+                      answerClass +=
+                        " correct";
+                    } else if (
+                      selectedAnswer !==
+                        null &&
+                      isCorrectAnswer(
+                        option,
+                        selectedAnswer
+                      )
+                    ) {
+                      answerClass +=
+                        " wrong";
+                    }
                   }
+
+                  return (
+                    <button
+                      key={`${index}-${String(
+                        option
+                      )}`}
+                      className={
+                        answerClass
+                      }
+                      onClick={() =>
+                        handleAnswer(
+                          option
+                        )
+                      }
+                      disabled={
+                        answered
+                      }
+                    >
+                      <span className="option-letter">
+                        {optionLetter}
+                      </span>
+
+                      <span className="option-text">
+                        {option}
+                      </span>
+                    </button>
+                  );
                 }
-
-                return (
-                  <button
-                    key={`${index}-${String(option)}`}
-                    className={answerClass}
-                    onClick={() => handleAnswer(option)}
-                    disabled={answered}
-                  >
-                    <span className="option-letter">
-                      {optionLetter}
-                    </span>
-
-                    <span className="option-text">
-                      {option}
-                    </span>
-                  </button>
-                );
-              })}
+              )}
             </div>
 
             {answered && (
               <div
                 className={`answer-feedback ${
-                  isCorrectAnswer(selectedAnswer, correctAnswer)
+                  isCorrectAnswer(
+                    selectedAnswer,
+                    correctAnswer
+                  )
                     ? "feedback-correct"
                     : "feedback-wrong"
                 }`}
               >
-                {isCorrectAnswer(selectedAnswer, correctAnswer)
+                {isCorrectAnswer(
+                  selectedAnswer,
+                  correctAnswer
+                )
                   ? "✓ Correct answer!"
                   : `✗ Incorrect. Correct answer: ${correctAnswer}`}
               </div>
@@ -673,10 +912,13 @@ function App() {
             <div className="question-footer">
               <button
                 className="next-button"
-                onClick={nextQuestion}
+                onClick={
+                  nextQuestion
+                }
                 disabled={!answered}
               >
-                {currentQuestion === questions.length - 1
+                {currentQuestion ===
+                questions.length - 1
                   ? "Finish Quiz"
                   : "Next Question →"}
               </button>
@@ -690,7 +932,12 @@ function App() {
   if (page === "result") {
     const percentage =
       questions.length > 0
-        ? Math.round((score / (questions.length * 40)) * 100)
+        ? Math.round(
+            (score /
+              (questions.length *
+                40)) *
+              100
+          )
         : 0;
 
     return (
@@ -699,27 +946,46 @@ function App() {
           <div
             className="brand"
             onClick={goHome}
-            style={{ cursor: "pointer" }}
+            style={{
+              cursor: "pointer",
+            }}
           >
-            <span className="brand-icon">⚡</span>
+            <span className="brand-icon">
+              ⚡
+            </span>
 
             <div>
-              <div className="brand-title">AI Quiz Battle</div>
-              <div className="brand-subtitle">CSE Challenge</div>
+              <div className="brand-title">
+                AI Quiz Battle
+              </div>
+
+              <div className="brand-subtitle">
+                CSE Challenge
+              </div>
             </div>
           </div>
 
           <div className="student-menu">
             <div className="student-avatar">
-              {getInitials(student.name)}
+              {getInitials(
+                student.name
+              )}
             </div>
 
             <div className="student-info">
-              <strong>{student.name}</strong>
-              <span>{student.email}</span>
+              <strong>
+                {student.name}
+              </strong>
+
+              <span>
+                {student.email}
+              </span>
             </div>
 
-            <button className="logout-button" onClick={logout}>
+            <button
+              className="logout-button"
+              onClick={logout}
+            >
               Logout
             </button>
           </div>
@@ -727,39 +993,64 @@ function App() {
 
         <main className="result-page">
           <div className="result-hero">
-            <div className="result-trophy">🏆</div>
+            <div className="result-trophy">
+              🏆
+            </div>
 
-            <h1>Quiz Complete!</h1>
+            <h1>
+              Quiz Complete!
+            </h1>
 
             <p>
-              Great job, {student.name}! Here is your performance.
+              Great job,{" "}
+              {student.name}! Here is
+              your performance.
             </p>
           </div>
 
           <div className="result-score-card">
-            <span>Your Score</span>
+            <span>
+              Your Score
+            </span>
 
             <div className="main-score">
               {score}
             </div>
 
-            <strong>{percentage}% Performance</strong>
+            <strong>
+              {percentage}% Performance
+            </strong>
           </div>
 
           <div className="result-stats">
             <div className="quiz-stat">
-              <span>XP Earned</span>
-              <strong>{xp}</strong>
+              <span>
+                XP Earned
+              </span>
+
+              <strong>
+                {xp}
+              </strong>
             </div>
 
             <div className="quiz-stat">
-              <span>Best Streak</span>
-              <strong>🔥 {bestStreak}</strong>
+              <span>
+                Best Streak
+              </span>
+
+              <strong>
+                🔥 {bestStreak}
+              </strong>
             </div>
 
             <div className="quiz-stat">
-              <span>Questions</span>
-              <strong>{questions.length}</strong>
+              <span>
+                Questions
+              </span>
+
+              <strong>
+                {questions.length}
+              </strong>
             </div>
           </div>
 
@@ -775,7 +1066,11 @@ function App() {
               className="result-secondary"
               onClick={() => {
                 setPage("home");
-                setTimeout(() => startQuiz(), 0);
+
+                setTimeout(
+                  () => startQuiz(),
+                  0
+                );
               }}
             >
               Play Again
@@ -793,27 +1088,46 @@ function App() {
           <div
             className="brand"
             onClick={goHome}
-            style={{ cursor: "pointer" }}
+            style={{
+              cursor: "pointer",
+            }}
           >
-            <span className="brand-icon">⚡</span>
+            <span className="brand-icon">
+              ⚡
+            </span>
 
             <div>
-              <div className="brand-title">AI Quiz Battle</div>
-              <div className="brand-subtitle">CSE Challenge</div>
+              <div className="brand-title">
+                AI Quiz Battle
+              </div>
+
+              <div className="brand-subtitle">
+                CSE Challenge
+              </div>
             </div>
           </div>
 
           <div className="student-menu">
             <div className="student-avatar">
-              {getInitials(student.name)}
+              {getInitials(
+                student.name
+              )}
             </div>
 
             <div className="student-info">
-              <strong>{student.name}</strong>
-              <span>{student.email}</span>
+              <strong>
+                {student.name}
+              </strong>
+
+              <span>
+                {student.email}
+              </span>
             </div>
 
-            <button className="logout-button" onClick={logout}>
+            <button
+              className="logout-button"
+              onClick={logout}
+            >
               Logout
             </button>
           </div>
@@ -821,12 +1135,17 @@ function App() {
 
         <main className="leaderboard-page">
           <div className="leaderboard-header">
-            <span className="section-label">GLOBAL RANKING</span>
+            <span className="section-label">
+              GLOBAL RANKING
+            </span>
+
             <h1 className="section-heading">
               Leaderboard
             </h1>
+
             <p>
-              See how you compare with other students.
+              See how you compare with
+              other students.
             </p>
           </div>
 
@@ -839,52 +1158,68 @@ function App() {
               <span>Streak</span>
             </div>
 
-            {leaderboard.length === 0 ? (
+            {leaderboard.length ===
+            0 ? (
               <div className="leaderboard-empty">
-                No quiz results yet. Complete a quiz to appear here.
+                No quiz results yet.
+                Complete a quiz to
+                appear here.
               </div>
             ) : (
-              leaderboard.map((item, index) => {
-                const name =
-                  item.username ||
-                  item.name ||
-                  "Student";
+              leaderboard.map(
+                (item, index) => {
+                  const name =
+                    item.username ||
+                    item.name ||
+                    "Student";
 
-                return (
-                  <div
-                    className="leaderboard-row"
-                    key={`${name}-${index}`}
-                  >
-                    <span>#{index + 1}</span>
+                  return (
+                    <div
+                      className="leaderboard-row"
+                      key={`${name}-${index}`}
+                    >
+                      <span>
+                        #{index + 1}
+                      </span>
 
-                    <div className="leader-student">
-                      <div className="leader-avatar">
-                        {getInitials(name)}
+                      <div className="leader-student">
+                        <div className="leader-avatar">
+                          {getInitials(
+                            name
+                          )}
+                        </div>
+
+                        <strong>
+                          {name}
+                        </strong>
                       </div>
 
-                      <strong>{name}</strong>
+                      <span>
+                        {item.score ??
+                          0}
+                      </span>
+
+                      <span>
+                        {item.xp ??
+                          0}
+                      </span>
+
+                      <span>
+                        🔥{" "}
+                        {item.streak ??
+                          0}
+                      </span>
                     </div>
-
-                    <span>
-                      {item.score ?? 0}
-                    </span>
-
-                    <span>
-                      {item.xp ?? 0}
-                    </span>
-
-                    <span>
-                      🔥 {item.streak ?? 0}
-                    </span>
-                  </div>
-                );
-              })
+                  );
+                }
+              )
             )}
           </div>
         </main>
 
         <footer className="footer">
-          AI Quiz Battle • Built for CSE Students
+          AI Quiz Battle • Built
+          for CSE Students
         </footer>
       </div>
     );
@@ -894,11 +1229,18 @@ function App() {
     <div className="app">
       <nav className="navbar">
         <div className="brand">
-          <span className="brand-icon">⚡</span>
+          <span className="brand-icon">
+            ⚡
+          </span>
 
           <div>
-            <div className="brand-title">AI Quiz Battle</div>
-            <div className="brand-subtitle">CSE Challenge</div>
+            <div className="brand-title">
+              AI Quiz Battle
+            </div>
+
+            <div className="brand-subtitle">
+              CSE Challenge
+            </div>
           </div>
         </div>
 
@@ -914,7 +1256,9 @@ function App() {
             className="nav-link"
             onClick={async () => {
               await fetchLeaderboard();
-              setPage("leaderboard");
+              setPage(
+                "leaderboard"
+              );
             }}
           >
             Leaderboard
@@ -923,15 +1267,25 @@ function App() {
 
         <div className="student-menu">
           <div className="student-avatar">
-            {getInitials(student.name)}
+            {getInitials(
+              student.name
+            )}
           </div>
 
           <div className="student-info">
-            <strong>{student.name}</strong>
-            <span>{student.email}</span>
+            <strong>
+              {student.name}
+            </strong>
+
+            <span>
+              {student.email}
+            </span>
           </div>
 
-          <button className="logout-button" onClick={logout}>
+          <button
+            className="logout-button"
+            onClick={logout}
+          >
             Logout
           </button>
         </div>
@@ -947,12 +1301,17 @@ function App() {
             <h1>
               Challenge your
               <br />
-              <span>coding knowledge.</span>
+              <span>
+                coding knowledge.
+              </span>
             </h1>
 
             <p>
-              Generate intelligent CSE quizzes, build your
-              streak, earn XP and compete with other students.
+              Generate intelligent CSE
+              quizzes, build your
+              streak, earn XP and
+              compete with other
+              students.
             </p>
 
             <div className="hero-buttons">
@@ -960,9 +1319,12 @@ function App() {
                 className="hero-primary"
                 onClick={() => {
                   document
-                    .querySelector(".quiz-setup-section")
+                    .querySelector(
+                      ".quiz-setup-section"
+                    )
                     ?.scrollIntoView({
-                      behavior: "smooth",
+                      behavior:
+                        "smooth",
                     });
                 }}
               >
@@ -973,7 +1335,9 @@ function App() {
                 className="hero-secondary"
                 onClick={async () => {
                   await fetchLeaderboard();
-                  setPage("leaderboard");
+                  setPage(
+                    "leaderboard"
+                  );
                 }}
               >
                 View Leaderboard
@@ -985,21 +1349,31 @@ function App() {
             <div className="quiz-orb">
               <div className="orb-inner">
                 <span>AI</span>
-                <small>QUIZ</small>
+                <small>
+                  QUIZ
+                </small>
               </div>
             </div>
 
             <div className="floating-card card-one">
-              <span>🔥 Best Streak</span>
+              <span>
+                🔥 Best Streak
+              </span>
+
               <strong>
-                {studentStats.best_streak || 0}
+                {studentStats.best_streak ||
+                  0}
               </strong>
             </div>
 
             <div className="floating-card card-two">
-              <span>⚡ Total XP</span>
+              <span>
+                ⚡ Total XP
+              </span>
+
               <strong>
-                {studentStats.total_xp || 0}
+                {studentStats.total_xp ||
+                  0}
               </strong>
             </div>
           </div>
@@ -1016,63 +1390,86 @@ function App() {
 
           <div className="setup-card">
             <div className="setup-field">
-              <label>Category</label>
+              <label>
+                Category
+              </label>
 
               <select
                 value={category}
                 onChange={(event) =>
-                  setCategory(event.target.value)
+                  setCategory(
+                    event.target.value
+                  )
                 }
               >
-                {CATEGORIES.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
+                {CATEGORIES.map(
+                  (item) => (
+                    <option
+                      key={item}
+                      value={item}
+                    >
+                      {item}
+                    </option>
+                  )
+                )}
               </select>
             </div>
 
             <div className="setup-field">
-              <label>Difficulty</label>
+              <label>
+                Difficulty
+              </label>
 
               <div className="difficulty-buttons">
-                {DIFFICULTIES.map((item) => (
-                  <button
-                    key={item}
-                    className={
-                      difficulty === item
-                        ? "selected"
-                        : ""
-                    }
-                    onClick={() =>
-                      setDifficulty(item)
-                    }
-                  >
-                    {item}
-                  </button>
-                ))}
+                {DIFFICULTIES.map(
+                  (item) => (
+                    <button
+                      key={item}
+                      className={
+                        difficulty ===
+                        item
+                          ? "selected"
+                          : ""
+                      }
+                      onClick={() =>
+                        setDifficulty(
+                          item
+                        )
+                      }
+                    >
+                      {item}
+                    </button>
+                  )
+                )}
               </div>
             </div>
 
             <div className="setup-field">
-              <label>Questions</label>
+              <label>
+                Questions
+              </label>
 
               <div className="question-count-buttons">
-                {QUESTION_COUNTS.map((count) => (
-                  <button
-                    key={count}
-                    className={
-                      questionCount === count
-                        ? "selected"
-                        : ""
-                    }
-                    onClick={() =>
-                      setQuestionCount(count)
-                    }
-                  >
-                    {count}
-                  </button>
-                ))}
+                {QUESTION_COUNTS.map(
+                  (count) => (
+                    <button
+                      key={count}
+                      className={
+                        questionCount ===
+                        count
+                          ? "selected"
+                          : ""
+                      }
+                      onClick={() =>
+                        setQuestionCount(
+                          count
+                        )
+                      }
+                    >
+                      {count}
+                    </button>
+                  )
+                )}
               </div>
             </div>
 
@@ -1097,48 +1494,69 @@ function App() {
         <section className="feature-strip">
           <div className="feature-item">
             <span>🎯</span>
+
             <div>
               <strong>
-                {studentStats.quizzes_completed || 0}
+                {studentStats.quizzes_completed ||
+                  0}
               </strong>
-              <small>Quizzes Completed</small>
+
+              <small>
+                Quizzes Completed
+              </small>
             </div>
           </div>
 
           <div className="feature-item">
             <span>🏆</span>
+
             <div>
               <strong>
-                {studentStats.best_score || 0}
+                {studentStats.best_score ||
+                  0}
               </strong>
-              <small>Best Score</small>
+
+              <small>
+                Best Score
+              </small>
             </div>
           </div>
 
           <div className="feature-item">
             <span>⚡</span>
+
             <div>
               <strong>
-                {studentStats.total_xp || 0}
+                {studentStats.total_xp ||
+                  0}
               </strong>
-              <small>Total XP</small>
+
+              <small>
+                Total XP
+              </small>
             </div>
           </div>
 
           <div className="feature-item">
             <span>📊</span>
+
             <div>
               <strong>
-                {studentStats.average_score || 0}
+                {studentStats.average_score ||
+                  0}
               </strong>
-              <small>Average Score</small>
+
+              <small>
+                Average Score
+              </small>
             </div>
           </div>
         </section>
       </main>
 
       <footer className="footer">
-        AI Quiz Battle • Built for CSE Students
+        AI Quiz Battle • Built
+        for CSE Students
       </footer>
     </div>
   );
