@@ -28,7 +28,7 @@ app = FastAPI(
 # Add your actual deployed frontend URL to FRONTEND_URL
 FRONTEND_URL = os.getenv(
     "FRONTEND_URL",
-    "https://YOUR-FRONTEND-NAME.onrender.com"
+   "https://ai-quiz-battle-llmz.onrender.com",
 ).strip().rstrip("/")
 
 allowed_origins = [
