@@ -1,9 +1,11 @@
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
 import hashlib
 import secrets
+import os
 
 from database import get_connection, create_database
 from ai_engine import generate_quiz_questions
@@ -18,14 +20,34 @@ app = FastAPI(
     version="2.0.0"
 )
 
+
+# =========================================================
+# CORS CONFIGURATION
+# =========================================================
+
+# Add your actual deployed frontend URL to FRONTEND_URL
+FRONTEND_URL = os.getenv(
+    "FRONTEND_URL",
+    "https://YOUR-FRONTEND-NAME.onrender.com"
+).strip().rstrip("/")
+
+allowed_origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+]
+
+# Don't add the placeholder URL to the allowed origins.
+if (
+    FRONTEND_URL
+    and "YOUR-FRONTEND-NAME" not in FRONTEND_URL
+):
+    allowed_origins.append(FRONTEND_URL)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:8000",
-        "http://127.0.0.1:8000",
-    ],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -71,7 +93,10 @@ class QuizResult(BaseModel):
 # PASSWORD FUNCTIONS
 # =========================================================
 
-def hash_password(password: str, salt: Optional[str] = None):
+def hash_password(
+    password: str,
+    salt: Optional[str] = None
+) -> str:
     if salt is None:
         salt = secrets.token_hex(16)
 
@@ -85,9 +110,12 @@ def hash_password(password: str, salt: Optional[str] = None):
     return f"{salt}${hashed.hex()}"
 
 
-def verify_password(password: str, stored_password: str):
+def verify_password(
+    password: str,
+    stored_password: str
+) -> bool:
     try:
-        salt, stored_hash = stored_password.split("$")
+        salt, stored_hash = stored_password.split("$", 1)
 
         hashed = hashlib.pbkdf2_hmac(
             "sha256",
@@ -96,9 +124,12 @@ def verify_password(password: str, stored_password: str):
             100000
         )
 
-        return hashed.hex() == stored_hash
+        return secrets.compare_digest(
+            hashed.hex(),
+            stored_hash
+        )
 
-    except Exception:
+    except (ValueError, AttributeError):
         return False
 
 
@@ -115,12 +146,23 @@ def root():
 
 
 # =========================================================
+# HEALTH CHECK
+# =========================================================
+
+@app.get("/api/health")
+def health_check():
+    return {
+        "status": "ok",
+        "message": "AI Quiz Battle backend is working."
+    }
+
+
+# =========================================================
 # REGISTER
 # =========================================================
 
 @app.post("/api/register")
 def register_student(student: StudentRegister):
-
     name = student.name.strip()
     email = student.email.strip().lower()
     password = student.password
@@ -145,59 +187,46 @@ def register_student(student: StudentRegister):
 
     connection = get_connection()
 
-    existing_student = connection.execute(
-        """
-        SELECT id
-        FROM students
-        WHERE email = ?
-        """,
-        (email,)
-    ).fetchone()
+    try:
+        existing_student = connection.execute(
+            """
+            SELECT id
+            FROM students
+            WHERE email = ?
+            """,
+            (email,)
+        ).fetchone()
 
-    if existing_student:
-        connection.close()
+        if existing_student:
+            raise HTTPException(
+                status_code=400,
+                detail="An account with this email already exists."
+            )
 
-        raise HTTPException(
-            status_code=400,
-            detail="An account with this email already exists."
+        hashed_password = hash_password(password)
+
+        cursor = connection.execute(
+            """
+            INSERT INTO students (name, email, password)
+            VALUES (?, ?, ?)
+            """,
+            (name, email, hashed_password)
         )
 
-    hashed_password = hash_password(password)
+        connection.commit()
+        student_id = cursor.lastrowid
 
-    connection.execute(
-        """
-        INSERT INTO students
-        (name, email, password)
-        VALUES (?, ?, ?)
-        """,
-        (
-            name,
-            email,
-            hashed_password
-        )
-    )
-
-    connection.commit()
-
-    student_id = connection.execute(
-        """
-        SELECT id
-        FROM students
-        WHERE email = ?
-        """,
-        (email,)
-    ).fetchone()["id"]
-
-    connection.close()
-
-    return {
-        "message": "Registration successful.",
-        "student": {
-            "id": student_id,
-            "name": name,
-            "email": email
+        return {
+            "message": "Registration successful.",
+            "student": {
+                "id": student_id,
+                "name": name,
+                "email": email
+            }
         }
-    }
+
+    finally:
+        connection.close()
 
 
 # =========================================================
@@ -206,21 +235,22 @@ def register_student(student: StudentRegister):
 
 @app.post("/api/login")
 def login_student(student: StudentLogin):
-
     email = student.email.strip().lower()
 
     connection = get_connection()
 
-    existing_student = connection.execute(
-        """
-        SELECT *
-        FROM students
-        WHERE email = ?
-        """,
-        (email,)
-    ).fetchone()
+    try:
+        existing_student = connection.execute(
+            """
+            SELECT id, name, email, password
+            FROM students
+            WHERE email = ?
+            """,
+            (email,)
+        ).fetchone()
 
-    connection.close()
+    finally:
+        connection.close()
 
     if not existing_student:
         raise HTTPException(
@@ -253,28 +283,29 @@ def login_student(student: StudentLogin):
 
 @app.get("/api/students")
 def get_students():
-
     connection = get_connection()
 
-    students = connection.execute(
-        """
-        SELECT id, name, email, created_at
-        FROM students
-        ORDER BY id DESC
-        """
-    ).fetchall()
+    try:
+        students = connection.execute(
+            """
+            SELECT id, name, email, created_at
+            FROM students
+            ORDER BY id DESC
+            """
+        ).fetchall()
 
-    connection.close()
+        return [
+            {
+                "id": student["id"],
+                "name": student["name"],
+                "email": student["email"],
+                "created_at": student["created_at"]
+            }
+            for student in students
+        ]
 
-    return [
-        {
-            "id": student["id"],
-            "name": student["name"],
-            "email": student["email"],
-            "created_at": student["created_at"]
-        }
-        for student in students
-    ]
+    finally:
+        connection.close()
 
 
 # =========================================================
@@ -283,9 +314,14 @@ def get_students():
 
 @app.post("/api/generate-quiz")
 def generate_quiz(request: QuizRequest):
-
     category = request.category.strip()
-    difficulty = request.difficulty.strip()
+    difficulty = request.difficulty.strip().title()
+
+    if not category:
+        raise HTTPException(
+            status_code=400,
+            detail="Category is required."
+        )
 
     count = request.count
 
@@ -302,7 +338,6 @@ def generate_quiz(request: QuizRequest):
         difficulty = "Medium"
 
     try:
-
         questions = generate_quiz_questions(
             category=category,
             difficulty=difficulty,
@@ -326,11 +361,7 @@ def generate_quiz(request: QuizRequest):
         raise
 
     except Exception as error:
-
-        print(
-            "Quiz generation error:",
-            error
-        )
+        print("Quiz generation error:", error)
 
         raise HTTPException(
             status_code=500,
@@ -344,7 +375,6 @@ def generate_quiz(request: QuizRequest):
 
 @app.post("/api/results")
 def save_result(result: QuizResult):
-
     username = result.username.strip()
 
     if not username:
@@ -355,38 +385,34 @@ def save_result(result: QuizResult):
 
     connection = get_connection()
 
-    connection.execute(
-        """
-        INSERT INTO quiz_results
-        (username, score, xp, streak)
-        VALUES (?, ?, ?, ?)
-        """,
-        (
-            username,
-            result.score,
-            result.xp,
-            result.streak
+    try:
+        cursor = connection.execute(
+            """
+            INSERT INTO quiz_results
+            (username, score, xp, streak)
+            VALUES (?, ?, ?, ?)
+            """,
+            (
+                username,
+                result.score,
+                result.xp,
+                result.streak
+            )
         )
-    )
 
-    connection.commit()
+        connection.commit()
 
-    result_id = connection.execute(
-        """
-        SELECT last_insert_rowid() AS id
-        """
-    ).fetchone()["id"]
+        return {
+            "message": "Result saved successfully.",
+            "result_id": cursor.lastrowid,
+            "username": username,
+            "score": result.score,
+            "xp": result.xp,
+            "streak": result.streak
+        }
 
-    connection.close()
-
-    return {
-        "message": "Result saved successfully.",
-        "result_id": result_id,
-        "username": username,
-        "score": result.score,
-        "xp": result.xp,
-        "streak": result.streak
-    }
+    finally:
+        connection.close()
 
 
 # =========================================================
@@ -395,40 +421,41 @@ def save_result(result: QuizResult):
 
 @app.get("/api/leaderboard")
 def get_leaderboard():
-
     connection = get_connection()
 
-    leaderboard = connection.execute(
-        """
-        SELECT
-            username,
-            MAX(score) AS best_score,
-            SUM(xp) AS total_xp,
-            MAX(streak) AS best_streak,
-            COUNT(*) AS quizzes_completed
-        FROM quiz_results
-        GROUP BY username
-        ORDER BY total_xp DESC, best_score DESC
-        LIMIT 50
-        """
-    ).fetchall()
+    try:
+        leaderboard = connection.execute(
+            """
+            SELECT
+                username,
+                MAX(score) AS best_score,
+                SUM(xp) AS total_xp,
+                MAX(streak) AS best_streak,
+                COUNT(*) AS quizzes_completed
+            FROM quiz_results
+            GROUP BY username
+            ORDER BY total_xp DESC, best_score DESC
+            LIMIT 50
+            """
+        ).fetchall()
 
-    connection.close()
+        return [
+            {
+                "rank": index + 1,
+                "username": row["username"],
+                "score": row["best_score"] or 0,
+                "best_score": row["best_score"] or 0,
+                "xp": row["total_xp"] or 0,
+                "total_xp": row["total_xp"] or 0,
+                "streak": row["best_streak"] or 0,
+                "best_streak": row["best_streak"] or 0,
+                "quizzes_completed": row["quizzes_completed"] or 0
+            }
+            for index, row in enumerate(leaderboard)
+        ]
 
-    return [
-        {
-            "rank": index + 1,
-            "username": row["username"],
-            "score": row["best_score"] or 0,
-            "best_score": row["best_score"] or 0,
-            "xp": row["total_xp"] or 0,
-            "total_xp": row["total_xp"] or 0,
-            "streak": row["best_streak"] or 0,
-            "best_streak": row["best_streak"] or 0,
-            "quizzes_completed": row["quizzes_completed"] or 0
-        }
-        for index, row in enumerate(leaderboard)
-    ]
+    finally:
+        connection.close()
 
 
 # =========================================================
@@ -437,32 +464,25 @@ def get_leaderboard():
 
 @app.get("/api/student-stats/{username}")
 def get_student_stats(username: str):
-
     username = username.strip()
 
     connection = get_connection()
 
-    results = connection.execute(
-        """
-        SELECT
-            score,
-            xp,
-            streak
-        FROM quiz_results
-        WHERE username = ?
-        ORDER BY id DESC
-        """,
-        (username,)
-    ).fetchall()
+    try:
+        results = connection.execute(
+            """
+            SELECT score, xp, streak
+            FROM quiz_results
+            WHERE username = ?
+            ORDER BY id DESC
+            """,
+            (username,)
+        ).fetchall()
 
-    connection.close()
-
-    # -----------------------------------------------------
-    # NO QUIZ RESULTS YET
-    # -----------------------------------------------------
+    finally:
+        connection.close()
 
     if not results:
-
         return {
             "username": username,
             "quizzes_completed": 0,
@@ -473,66 +493,28 @@ def get_student_stats(username: str):
             "recent_results": []
         }
 
-    # -----------------------------------------------------
-    # CALCULATE STATISTICS
-    # -----------------------------------------------------
-
-    scores = [
-        row["score"]
-        for row in results
-    ]
-
-    xp_values = [
-        row["xp"]
-        for row in results
-    ]
-
-    streaks = [
-        row["streak"]
-        for row in results
-    ]
+    scores = [row["score"] for row in results]
+    xp_values = [row["xp"] for row in results]
+    streaks = [row["streak"] for row in results]
 
     quizzes_completed = len(results)
-
-    best_score = max(scores)
-
-    total_xp = sum(xp_values)
-
-    best_streak = max(streaks)
-
-    average_score = round(
-        sum(scores) / quizzes_completed,
-        1
-    )
-
-    recent_results = [
-        {
-            "score": row["score"],
-            "xp": row["xp"],
-            "streak": row["streak"]
-        }
-        for row in results[:5]
-    ]
 
     return {
         "username": username,
         "quizzes_completed": quizzes_completed,
-        "best_score": best_score,
-        "total_xp": total_xp,
-        "best_streak": best_streak,
-        "average_score": average_score,
-        "recent_results": recent_results
-    }
-
-
-# =========================================================
-# RUN INFORMATION
-# =========================================================
-
-@app.get("/api/health")
-def health_check():
-
-    return {
-        "status": "ok",
-        "message": "AI Quiz Battle backend is working."
+        "best_score": max(scores),
+        "total_xp": sum(xp_values),
+        "best_streak": max(streaks),
+        "average_score": round(
+            sum(scores) / quizzes_completed,
+            1
+        ),
+        "recent_results": [
+            {
+                "score": row["score"],
+                "xp": row["xp"],
+                "streak": row["streak"]
+            }
+            for row in results[:5]
+        ]
     }
